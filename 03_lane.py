@@ -19,13 +19,11 @@
 """
 
 import argparse
-import ast
 import asyncio
 import concurrent.futures as cf
 import json
 import pathlib
 import random
-import re
 import sys
 import time
 
@@ -37,35 +35,12 @@ from daytona import (
     DaytonaServiceUnavailableError,
 )
 
-from llm import LLMError, chat, provider_info
+from llm import LLMError, chat, extract_code, provider_info
 
 TRANSIENT = (DaytonaBadGatewayError, DaytonaServiceUnavailableError, DaytonaRateLimitError)
 MAX_CONCURRENT = 10
 HERE = pathlib.Path(__file__).parent
 CONTROL = "CONTROL-known-wrong"
-
-CODE_BLOCK = re.compile(r"```(?:python)?\s*\n(.*?)```", re.S)
-OPEN_FENCE = re.compile(r"```(?:python)?\s*\n(.*)", re.S)
-
-
-def extract(text: str, must_contain: str) -> str | None:
-    """코드블록을 꺼내고 실제로 파싱되는지까지 확인한다.
-
-    reasoning 모델은 content 앞에 추론 토큰을 태우기 때문에 max_tokens 에 걸려
-    코드블록이 '닫히기 전에' 끊기는 일이 잦다 (실측). 닫는 펜스가 없으면
-    정규식이 통째로 실패하고, must_contain 만 보면 잘린 코드를 통과시킨다.
-    그래서 여는 펜스만 있는 경우도 받아주되 ast.parse 로 절단을 잡는다.
-    """
-    m = CODE_BLOCK.search(text) or OPEN_FENCE.search(text)
-    code = (m.group(1) if m else text).strip()
-    if must_contain not in code:
-        return None
-    try:
-        ast.parse(code)
-    except SyntaxError:
-        return None  # 대개 토큰 상한에 걸려 잘린 응답이다
-    return code
-
 
 # --- 1. 태스크 ---------------------------------------------------------------
 
@@ -133,7 +108,7 @@ def gen(prompt: str, task: dict, must: str, temp: float, tries: int = 3) -> str 
         title=task["title"], detail=task["detail"], entry=task["entrypoint"])}]
     for i in range(tries):
         try:
-            code = extract(chat(msg, temperature=temp, max_tokens=2500 + 1500 * i), must)
+            code = extract_code(chat(msg, temperature=temp, max_tokens=2500 + 1500 * i), must)
             if code:
                 return code
         except LLMError as e:

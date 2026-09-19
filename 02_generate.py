@@ -10,11 +10,10 @@ N번을 서로 다른 온도로 병렬 호출한다. 같은 프롬프트라도 �
 import concurrent.futures as cf
 import json
 import pathlib
-import re
 import sys
 import time
 
-from llm import LLMError, chat, provider_info
+from llm import LLMError, chat, extract_code, provider_info
 
 BUGGY = '''def median(xs):
     xs = sorted(xs)
@@ -34,15 +33,6 @@ PROMPT = """아래 파이썬 함수에 버그가 있다.
 고친 함수 전체를 파이썬 코드블록 하나로만 답하라.
 설명·주석·테스트는 쓰지 말고 `def median(xs):` 로 시작하는 함수 본문만 출력한다."""
 
-CODE_BLOCK = re.compile(r"```(?:python)?\s*\n(.*?)```", re.S)
-
-
-def extract_code(text: str) -> str | None:
-    m = CODE_BLOCK.search(text)
-    code = (m.group(1) if m else text).strip()
-    return code if "def median" in code else None
-
-
 def one(i: int, temp: float) -> tuple[str, str | None, str]:
     t0 = time.time()
     try:
@@ -50,7 +40,7 @@ def one(i: int, temp: float) -> tuple[str, str | None, str]:
             [{"role": "user", "content": PROMPT.format(buggy=BUGGY, failing=FAILING)}],
             temperature=temp,
         )
-        code = extract_code(out)
+        code = extract_code(out, "def median")
         note = "OK" if code else "코드블록 파싱 실패"
     except LLMError as e:
         code, note = None, str(e)[:80]

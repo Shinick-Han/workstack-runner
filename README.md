@@ -139,11 +139,15 @@ Groq, Nosana and OpenAI are wired in `PROVIDERS`.
 - **Preview tokens authenticate every port** of a sandbox, not just the one you
   asked for. `00_smoke.py` prints only the token's length.
 
-- **Generated code gets truncated.** Reasoning models spend tokens before emitting
-  content, so a fenced code block can end mid-function with no closing fence.
-  Checking only that the text contains `def foo` will happily accept a truncated
-  body. `03_lane.py` parses every generated snippet with `ast.parse` and retries
-  with a larger token budget.
+- **Generated code gets truncated, and reasoning leaks into it.** Reasoning models
+  spend tokens before emitting content, so a fenced code block can end mid-function
+  with no closing fence. Worse, where a model puts its reasoning is provider-specific:
+  some return it in a separate field, while DeepSeek R1 style models inline it in the
+  content as `<think>...</think>`. Checking only that the text contains `def foo` then
+  accepts English prose as a candidate — it parses as nothing, fails in the sandbox,
+  and looks like a bad implementation rather than a broken pipeline. `llm.py`'s
+  `extract_code` strips reasoning (closed and unterminated), takes the code block, and
+  validates it with `ast.parse`; callers retry with a larger token budget.
 - **An underspecified task produces zero survivors.** A generated oracle will
   invent requirements the candidates never saw, and everything fails. That is a
   real signal about the task, not a bug — but it means the planning task's detail

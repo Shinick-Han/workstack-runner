@@ -10,8 +10,10 @@
 의존성 없음 (urllib). 현장에서 pip 사고 안 난다.
 """
 
+import ast
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 
@@ -87,6 +89,45 @@ def chat(messages: list[dict], *, temperature: float = 0.8, max_tokens: int = 18
             return json.loads(r.read())["choices"][0]["message"]["content"]
     except urllib.error.HTTPError as e:
         raise LLMError(f"{p['name']} HTTP {e.code}: {e.read().decode()[:200]}") from e
+
+
+CODE_BLOCK = re.compile(r"```(?:python)?\s*\n(.*?)```", re.S)
+OPEN_FENCE = re.compile(r"```(?:python)?\s*\n(.*)", re.S)
+THINK = re.compile(r"<think>.*?</think>\s*", re.S)
+OPEN_THINK = re.compile(r"^.*?</think>\s*", re.S)
+
+
+def strip_reasoning(text: str) -> str:
+    """추론 모델이 content 안에 남긴 사고 과정을 걷어낸다.
+
+    프로바이더마다 추론이 나오는 자리가 다르다. gpt-oss 는 별도 필드로 빼지만
+    DeepSeek R1 계열은 content 안에 <think>...</think> 로 섞어 보낸다.
+    이걸 안 걷어내면 코드블록이 없는 응답에서 '사고 과정 산문'이 그대로
+    코드로 넘어간다 (실측: 후보 3개가 전부 영어 산문이었다).
+    토큰 상한에 걸려 </think> 가 닫히지 않은 응답도 있어 양쪽을 다 본다.
+    """
+    text = THINK.sub("", text)
+    if "</think>" in text:
+        text = OPEN_THINK.sub("", text)
+    return text.strip()
+
+
+def extract_code(text: str, must_contain: str) -> str | None:
+    """응답에서 파이썬 코드를 꺼내되, 실제로 파싱되는 것만 돌려준다.
+
+    must_contain 만 확인하면 잘린 코드나 그 문자열을 언급한 산문도 통과한다.
+    ast.parse 가 그 둘을 한 번에 걸러낸다.
+    """
+    text = strip_reasoning(text)
+    m = CODE_BLOCK.search(text) or OPEN_FENCE.search(text)
+    code = (m.group(1) if m else text).strip()
+    if must_contain not in code:
+        return None
+    try:
+        ast.parse(code)
+    except SyntaxError:
+        return None
+    return code
 
 
 def selftest() -> None:
