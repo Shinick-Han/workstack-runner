@@ -266,16 +266,18 @@ async def lane(task: dict, n: int) -> dict:
 
 
 def write_back(task: dict, outcome: dict) -> None:
-    """계획 태스크에 실행 증거를 되돌려쓴다.
+    """계획 태스크에 실행 증거를 붙인다 — 계획 자체는 건드리지 않는다.
 
-    Work Stack 은 계획(무엇을 할 것인가)을 소유하고, 실행 결과는 증거로 붙는다.
+    Work Stack 은 계획(무엇을 할 것인가)을 소유하고 실행은 소유하지 않는다.
+    그래서 실행 결과는 planning status 를 덮어쓰지 않고 read-only 증거로만 붙는다.
+    검증이 통과했다고 태스크가 스스로 done 이 되지 않는다 — 완료 판단은 사람이 한다.
+
     여기서는 데모 백로그에 쓰지만 형태는 그대로 SSOT 로 옮길 수 있다.
     """
     path = HERE / "demo_backlog.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     for t in data["tasks"]:
         if t["id"] == task["id"]:
-            t["status"] = "done" if outcome["adopted"] else "started"
             t["evidence"] = {
                 "verified_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
                 "oracle_valid": outcome["oracle_valid"],
@@ -287,13 +289,14 @@ def write_back(task: dict, outcome: dict) -> None:
             }
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    status = task.get("status", "open")
     if outcome["solution"]:
         out = HERE / f"solution_{task['id']}.py"
         out.write_text(outcome["solution"], encoding="utf-8")
         print(f"\n채택: {outcome['adopted']}  ->  {out.name}")
-        print(f"태스크 {task['id']} status=done, 증거 기록됨")
+        print(f"태스크 {task['id']} 에 증거 기록됨 (status={status} 유지 — 완료 판단은 사람이)")
     else:
-        print(f"\n채택 없음 — 태스크 {task['id']} status=started 로 남긴다")
+        print(f"\n채택 없음 — 태스크 {task['id']} 에 실패 증거만 기록됨 (status={status} 유지)")
 
 
 def main() -> None:
