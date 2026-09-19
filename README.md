@@ -43,6 +43,44 @@ and a run where it survives is a **failed run**, not a clean one.
 
 ---
 
+## The execution lane
+
+`03_lane.py` takes a planning task and returns a verified implementation:
+
+```bash
+python 03_lane.py T-101 --n 5
+```
+
+```
+[1/3] oracle + control generated          2.6s
+[2/3] 5/5 candidates parsed               3.4s
+[3/3] fan-out: 5 candidates + 1 control
+
+cand-02                 PASS    2.56
+cand-04                 PASS    2.71
+cand-00                 FAIL    2.54   ValueError: invalid separator
+cand-01                 FAIL    2.72   TypeError: cannot unpack non-iterable
+cand-03                 FAIL    2.20   AssertionError: expected ValueError
+CONTROL-known-wrong     FAIL    2.42   caught by the oracle (as it must be)
+
+oracle gate passed - the known-wrong candidate was rejected.
+survivors 2/5 | wall 3.3s vs sequential 15.2s (4.6x)
+adopted cand-02 -> solution_T-101.py
+```
+
+The oracle is written by the model too. That is exactly why the control matters:
+a generated test suite can be vacuous, and a vacuous suite makes every candidate
+look correct. The control and the candidates run in the **same batch, against the
+same oracle, in identical sandboxes** — so the gate result and the candidate
+results are comparable by construction.
+
+If the control survives, the run reports **the oracle as invalid and every green
+result as meaningless**, rather than adopting a winner.
+
+Outcomes are written back to the planning task as evidence — survivors, what was
+adopted, wall time, speedup — so the plan records not just that the task is done
+but what proved it.
+
 ## Quick start
 
 ```bash
@@ -70,6 +108,8 @@ wall 3.6s  sequential 18.5s  speedup 5.2x
 | `00_smoke.py` | Round trip proof: create -> `code_run` -> shell -> public preview URL -> delete |
 | `02_generate.py` | Generates N candidates in parallel at varied temperature; always appends the control |
 | `01_fanout.py` | Fan-out verification. Reads `candidates.json` if present, else built-in candidates |
+| `03_lane.py` | The execution lane: planning task -> oracle -> gate -> fan-out -> evidence |
+| `demo_backlog.json` | Demo workspace of planning tasks (`T-101`..`T-103`) |
 | `llm.py` | Zero-dependency provider shim (stdlib `urllib` only) |
 | `NOTES.md` | Every trap hit during development, with the measured numbers (Korean) |
 
@@ -99,11 +139,20 @@ Groq, Nosana and OpenAI are wired in `PROVIDERS`.
 - **Preview tokens authenticate every port** of a sandbox, not just the one you
   asked for. `00_smoke.py` prints only the token's length.
 
+- **Generated code gets truncated.** Reasoning models spend tokens before emitting
+  content, so a fenced code block can end mid-function with no closing fence.
+  Checking only that the text contains `def foo` will happily accept a truncated
+  body. `03_lane.py` parses every generated snippet with `ast.parse` and retries
+  with a larger token budget.
+- **An underspecified task produces zero survivors.** A generated oracle will
+  invent requirements the candidates never saw, and everything fails. That is a
+  real signal about the task, not a bug — but it means the planning task's detail
+  is the actual contract, and vagueness there shows up as a red run.
+
 ## Status
 
-The verification engine above is working and measured. Wiring it to the Work Stack
-planning SSOT — so a planning task becomes a fan-out run and its outcome is written
-back as evidence — is in progress.
+The lane runs end to end against the bundled demo workspace. It reads from a
+local `demo_backlog.json`; reading and writing the real Work Stack SSOT is next.
 
 ## License
 

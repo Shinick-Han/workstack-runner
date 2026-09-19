@@ -1,0 +1,32 @@
+{
+  "workspace": "demo",
+  "tasks": [
+    {
+      "id": "T-101",
+      "title": "Parse duration strings into seconds",
+      "detail": "Write parse_duration(s: str) -> int. Input is a duration made of one or more <integer><unit> components, where unit is exactly one of 'h', 'm', 's'. Components may be separated by single spaces or nothing at all: '90s' -> 90, '5m' -> 300, '2h30m' -> 9000, '1h 15m 30s' -> 4530. Components must appear in descending unit order (h before m before s) and each unit may appear at most once. Integers are non-negative and may exceed the usual range ('90m' -> 5400). Raise ValueError for: the empty string, a bare number with no unit ('30'), an unknown unit ('5d'), units out of order ('30s2h'), and a repeated unit ('1h2h'). Do not accept negative numbers, decimals, or leading/trailing whitespace.",
+      "entrypoint": "parse_duration",
+      "status": "open",
+      "priority": 2,
+      "estimate_minutes": 30
+    },
+    {
+      "id": "T-102",
+      "title": "Merge overlapping intervals",
+      "detail": "Write merge_intervals(intervals) -> list. Input is a list of (start, end) integer tuples with start <= end, in any order. Return the minimal list of non-overlapping (start, end) tuples covering exactly the same points, sorted ascending by start. Overlapping intervals merge: [(1,5),(3,7)] -> [(1,7)]. Touching intervals merge: [(1,2),(2,3)] -> [(1,3)]. Intervals with a gap stay separate: [(1,2),(4,5)] -> [(1,2),(4,5)]. A fully contained interval disappears into its container: [(1,10),(3,4)] -> [(1,10)]. Empty input returns []. Do not mutate the input list. Return tuples, not lists.",
+      "entrypoint": "merge_intervals",
+      "status": "open",
+      "priority": 1,
+      "estimate_minutes": 25
+    },
+    {
+      "id": "T-103",
+      "title": "Semantic version comparison",
+      "detail": "Write compare_versions(a: str, b: str) -> int returning -1 if a < b, 0 if equal, 1 if a > b. Each version is MAJOR.MINOR.PATCH with non-negative integers, optionally followed by '-' and a pre-release identifier. Compare MAJOR, then MINOR, then PATCH numerically, so '1.10.0' > '1.9.0'. A version with a pre-release is lower than the same version without one: '1.0.0-alpha' < '1.0.0'. When both have pre-releases, compare the pre-release strings lexicographically: '1.0.0-alpha' < '1.0.0-beta'. Build metadata is out of scope and will not appear in the input.",
+      "entrypoint": "compare_versions",
+      "status": "open",
+      "priority": 3,
+      "estimate_minutes": 40
+    }
+  ]
+}
